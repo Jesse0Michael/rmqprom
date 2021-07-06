@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/adjust/rmq/v3"
+	"github.com/adjust/rmq/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
