@@ -8,3 +8,5 @@ require (
 	github.com/prometheus/client_golang v1.6.0
 	github.com/sirupsen/logrus v1.4.2
 )
+
+replace github.com/adjust/rmq/v3 => github.com/jesse0michael/rmq/v3 v3.0.1
