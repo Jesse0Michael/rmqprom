@@ -1,10 +1,12 @@
 package rmqprom
 
 import (
+	"context"
 	"time"
 
 	"github.com/adjust/rmq/v3"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
 
 type queueStatsCounters struct {
@@ -15,24 +17,35 @@ type queueStatsCounters struct {
 	unackedCount    prometheus.Gauge
 }
 
-func RecordRmqMetrics(connection rmq.Connection) {
+func RecordRmqMetrics(ctx context.Context, connection rmq.Connection, l *logrus.Entry) {
 	counters := registerCounters(connection)
 
 	go func() {
 		for {
-			queues, _ := connection.GetOpenQueues()
-			stats, _ := connection.CollectStats(queues)
-			for queue, queueStats := range stats.QueueStats {
-				if counter, ok := counters[queue]; ok {
-					counter.readyCount.Set(float64(queueStats.ReadyCount))
-					counter.rejectedCount.Set(float64(queueStats.RejectedCount))
-					counter.connectionCount.Set(float64(queueStats.ConnectionCount()))
-					counter.consumerCount.Set(float64(queueStats.ConsumerCount()))
-					counter.unackedCount.Set(float64(queueStats.UnackedCount()))
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				queues, openErr := connection.GetOpenQueues()
+				if openErr != nil {
+					l.WithError(openErr).Error("failed to open queues for rmq metrics")
 				}
-			}
+				stats, statErr := connection.CollectStats(queues)
+				if statErr != nil {
+					l.WithError(statErr).Error("failed to collect stats for rmq metrics")
+				}
+				for queue, queueStats := range stats.QueueStats {
+					if counter, ok := counters[queue]; ok {
+						counter.readyCount.Set(float64(queueStats.ReadyCount))
+						counter.rejectedCount.Set(float64(queueStats.RejectedCount))
+						counter.connectionCount.Set(float64(queueStats.ConnectionCount()))
+						counter.consumerCount.Set(float64(queueStats.ConsumerCount()))
+						counter.unackedCount.Set(float64(queueStats.UnackedCount()))
+					}
+				}
 
-			time.Sleep(1 * time.Second)
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}()
 }
