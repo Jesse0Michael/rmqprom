@@ -21,6 +21,11 @@ func RecordRmqMetrics(ctx context.Context, connection rmq.Connection, l *logrus.
 	counters := registerCounters(connection)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				l.Warn("panic in RecordRmqMetrics", r)
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():
